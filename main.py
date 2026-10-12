@@ -1,294 +1,553 @@
+# loading the packages and dataset
+
+import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
 
-# ==================================================
-# MODULE 1: ENVIRONMENT SETUP
-# ==================================================
+print("=" * 50)
+print("CUSTOMER SEGMENTATION PROJECT")
+print("=" * 50)
 
-# 0 = Free space, 1 = Obstacle, 2 = Goal
+# Load the dataset
+df = pd.read_csv("Mall_Customers.csv")
 
-grid = np.array([
-    [0, 0, 0, 0, 0],
-    [0, 1, 1, 0, 0],
-    [0, 0, 0, 0, 1],
-    [1, 0, 1, 0, 0],
-    [0, 0, 0, 0, 2]
-])
+# Display the first five records
+print("\nFirst Five Records:")
+print(df.head())
 
-start = (0, 0)
-goal = (4, 4)
+# Display the number of rows and columns
+print("\nDataset Shape:")
+print(df.shape)
 
-ROWS, COLS = grid.shape
+# Display column names
+print("\nColumn Names:")
+print(df.columns.tolist())
 
-# Actions: Up, Down, Left, Right
-actions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+# Display dataset information
+print("\nDataset Information:")
+df.info()
 
-# ==================================================
-# MODULE 2: Q-LEARNING SETTINGS
-# ==================================================
+# Check missing values
+print("\nMissing Values:")
+print(df.isnull().sum())
 
-q_table = np.zeros((ROWS * COLS, len(actions)))
+# Check duplicate records
+print("\nDuplicate Records:")
+print(df.duplicated().sum())
 
-learning_rate = 0.1
-discount_factor = 0.9
+# Statistical summary
+print("\nStatistical Summary:")
+print(df.describe())
 
-episodes = 2000
-max_steps = 100
+# Check data types
+print("\nData Types:")
+print(df.dtypes)
 
-exploration_rate = 1.0
-min_exploration_rate = 0.05
-exploration_decay = 0.995
+print("\nModule 1 completed successfully!")
 
-success_history = []
-reward_history = []
 
-# ==================================================
-# MODULE 3: HELPER FUNCTIONS
-# ==================================================
+# Data Cleaning and Preparation
 
-def state_number(position):
-    """Convert a grid position into a state number."""
-    return position[0] * COLS + position[1]
+print("\n" + "=" * 50)
+print("MODULE 2: DATA CLEANING AND PREPARATION")
+print("=" * 50)
 
+# Check missing values
+print("\nMissing Values Before Cleaning:")
+print(df.isnull().sum())
 
-def take_action(position, action):
-    """Move the robot and return the reward."""
+# Check duplicate records
+print("\nDuplicate Records Before Cleaning:")
+print(df.duplicated().sum())
 
-    row = position[0] + actions[action][0]
-    col = position[1] + actions[action][1]
+# Remove duplicate records
+df = df.drop_duplicates()
 
-    # Prevent movement outside the grid
-    if row < 0 or row >= ROWS or col < 0 or col >= COLS:
-        return position, -5, False
+# Check for missing values after cleaning
+print("\nMissing Values After Cleaning:")
+print(df.isnull().sum())
 
-    # Prevent movement into obstacles
-    if grid[row, col] == 1:
-        return position, -5, False
+# Remove CustomerID because it is only an identifier
+df = df.drop(columns=["CustomerID"])
 
-    next_position = (row, col)
+# Display the cleaned dataset
+print("\nFirst Five Records After Cleaning:")
+print(df.head())
 
-    # Reward reaching the destination
-    if next_position == goal:
-        return next_position, 100, True
+# Display the updated dataset shape
+print("\nDataset Shape After Cleaning:")
+print(df.shape)
 
-    # Small penalty for each ordinary move
-    return next_position, -1, False
+# Display the final column names
+print("\nColumns After Cleaning:")
+print(df.columns.tolist())
 
+print("\nModule 2 completed successfully!")
 
-# ==================================================
-# MODULE 4: TRAIN THE ROBOT
-# ==================================================
+# Exploratory Data Analysis (EDA)
 
-print("Training the robot...\n")
+print("\n" + "=" * 50)
+print("MODULE 3: EXPLORATORY DATA ANALYSIS")
+print("=" * 50)
 
-for episode in range(episodes):
+# 1. Gender distribution
+print("\nCustomer Count by Gender:")
+print(df["Gender"].value_counts())
 
-    position = start
-    total_reward = 0
-    reached_goal = False
-
-    for step in range(max_steps):
-
-        state = state_number(position)
-
-        # Explore or choose the best-known action
-        if np.random.random() < exploration_rate:
-            action = np.random.randint(len(actions))
-        else:
-            action = np.argmax(q_table[state])
-
-        next_position, reward, done = take_action(
-            position, action
-        )
-
-        next_state = state_number(next_position)
-
-        # Q-Learning update
-        old_value = q_table[state, action]
-
-        future_value = np.max(q_table[next_state])
-
-        q_table[state, action] = old_value + learning_rate * (
-            reward
-            + discount_factor * future_value
-            - old_value
-        )
-
-        position = next_position
-        total_reward += reward
-
-        if done:
-            reached_goal = True
-            break
-
-    success_history.append(int(reached_goal))
-    reward_history.append(total_reward)
-
-    # Gradually reduce exploration
-    exploration_rate = max(
-        min_exploration_rate,
-        exploration_rate * exploration_decay
-    )
-
-print("Training completed!")
-print("Total training episodes:", episodes)
-
-
-# ==================================================
-# MODULE 5: EVALUATE THE LEARNED ROBOT
-# ==================================================
-
-def evaluate_robot():
-    """Test the learned policy without random exploration."""
-
-    test_episodes = 100
-    successful_attempts = 0
-    successful_steps = []
-
-    for episode in range(test_episodes):
-
-        position = start
-
-        for step in range(max_steps):
-
-            state = state_number(position)
-
-            # Choose the action with the highest Q-value
-            action = np.argmax(q_table[state])
-
-            next_position, reward, done = take_action(
-                position, action
-            )
-
-            position = next_position
-
-            if done:
-                successful_attempts += 1
-                successful_steps.append(step + 1)
-                break
-
-    success_rate = (
-        successful_attempts / test_episodes
-    ) * 100
-
-    print("\n--- Robot Performance ---")
-    print("Test episodes:", test_episodes)
-    print("Successful attempts:", successful_attempts)
-    print(f"Success rate: {success_rate:.2f}%")
-
-    if successful_steps:
-        print(
-            "Average steps to goal:",
-            f"{np.mean(successful_steps):.2f}"
-        )
-
-    return success_rate
-
-
-success_rate = evaluate_robot()
-
-
-# ==================================================
-# MODULE 6: DISPLAY THE LEARNED ROUTE
-# ==================================================
-
-def find_route():
-
-    position = start
-    path = [position]
-
-    for step in range(max_steps):
-
-        state = state_number(position)
-        action = np.argmax(q_table[state])
-
-        next_position, reward, done = take_action(
-            position, action
-        )
-
-        # Stop if the robot cannot make progress
-        if next_position == position:
-            break
-
-        position = next_position
-        path.append(position)
-
-        if done:
-            break
-
-    return path
-
-
-path = find_route()
-
-print("\n--- Learned Route ---")
-print("Route:", path)
-
-if path[-1] == goal:
-    print("Result: Robot reached the destination!")
-else:
-    print("Result: Robot did not reach the destination.")
-
-
-# ==================================================
-# MODULE 7: VISUALIZE THE RESULTS
-# ==================================================
-
-fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-
-# First graph: Robot navigation
-axes[0].imshow(grid, cmap="viridis")
-
-path_rows = [position[0] for position in path]
-path_cols = [position[1] for position in path]
-
-axes[0].plot(
-    path_cols,
-    path_rows,
-    marker="o",
-    color="red",
-    label="Learned Route"
-)
-
-axes[0].scatter(
-    start[1], start[0],
-    color="blue",
-    s=100,
-    label="Start"
-)
-
-axes[0].scatter(
-    goal[1], goal[0],
-    color="yellow",
-    edgecolors="black",
-    s=150,
-    label="Goal"
-)
-
-axes[0].set_title("Robot Navigation")
-axes[0].set_xticks(range(COLS))
-axes[0].set_yticks(range(ROWS))
-axes[0].legend()
-
-# Second graph: Learning progress
-window = 100
-
-moving_success_rate = np.convolve(
-    success_history,
-    np.ones(window) / window,
-    mode="valid"
-) * 100
-
-axes[1].plot(
-    range(window, episodes + 1),
-    moving_success_rate
-)
-
-axes[1].set_title("Training Progress")
-axes[1].set_xlabel("Training Episode")
-axes[1].set_ylabel("Success Rate (%)")
-axes[1].set_ylim(0, 105)
-axes[1].grid(True)
-
+plt.figure(figsize=(7, 5))
+sns.countplot(data=df, x="Gender")
+plt.title("Customer Distribution by Gender")
+plt.xlabel("Gender")
+plt.ylabel("Number of Customers")
 plt.tight_layout()
 plt.show()
+
+# 2. Age distribution
+print("\nAge Statistics:")
+print(df["Age"].describe())
+
+plt.figure(figsize=(8, 5))
+sns.histplot(data=df, x="Age", bins=15, kde=True)
+plt.title("Customer Age Distribution")
+plt.xlabel("Age")
+plt.ylabel("Number of Customers")
+plt.tight_layout()
+plt.show()
+
+# 3. Annual income distribution
+plt.figure(figsize=(8, 5))
+sns.histplot(data=df, x="Annual Income (k$)", bins=15, kde=True)
+plt.title("Annual Income Distribution")
+plt.xlabel("Annual Income (thousands of dollars)")
+plt.ylabel("Number of Customers")
+plt.tight_layout()
+plt.show()
+
+# 4. Spending score distribution
+plt.figure(figsize=(8, 5))
+sns.histplot(data=df, x="Spending Score (1-100)", bins=15, kde=True)
+plt.title("Customer Spending Score Distribution")
+plt.xlabel("Spending Score")
+plt.ylabel("Number of Customers")
+plt.tight_layout()
+plt.show()
+
+# 5. Annual income vs spending score
+plt.figure(figsize=(8, 5))
+sns.scatterplot(
+    data=df,
+    x="Annual Income (k$)",
+    y="Spending Score (1-100)",
+    hue="Gender"
+)
+plt.title("Annual Income vs Spending Score")
+plt.xlabel("Annual Income (thousands of dollars)")
+plt.ylabel("Spending Score")
+plt.tight_layout()
+plt.show()
+
+print("\nModule 3 completed successfully!")
+
+# Analyze Relationships Between Features
+
+print("\n" + "=" * 50)
+print("MODULE 4: FEATURE RELATIONSHIP ANALYSIS")
+print("=" * 50)
+
+# 1. Age vs Spending Score
+plt.figure(figsize=(8, 5))
+sns.scatterplot(
+    data=df,
+    x="Age",
+    y="Spending Score (1-100)",
+    hue="Gender"
+)
+plt.title("Age vs Spending Score")
+plt.xlabel("Age")
+plt.ylabel("Spending Score")
+plt.tight_layout()
+plt.show()
+
+# 2. Age vs Annual Income
+plt.figure(figsize=(8, 5))
+sns.scatterplot(
+    data=df,
+    x="Age",
+    y="Annual Income (k$)",
+    hue="Gender"
+)
+plt.title("Age vs Annual Income")
+plt.xlabel("Age")
+plt.ylabel("Annual Income (thousands of dollars)")
+plt.tight_layout()
+plt.show()
+
+# 3. Annual Income vs Spending Score
+plt.figure(figsize=(8, 5))
+sns.scatterplot(
+    data=df,
+    x="Annual Income (k$)",
+    y="Spending Score (1-100)",
+    hue="Gender"
+)
+plt.title("Annual Income vs Spending Score")
+plt.xlabel("Annual Income (thousands of dollars)")
+plt.ylabel("Spending Score")
+plt.tight_layout()
+plt.show()
+
+print("\nModule 4 completed successfully!")
+
+# Select Features for Clustering
+
+print("\n" + "=" * 50)
+print("MODULE 5: FEATURE SELECTION")
+print("=" * 50)
+
+# Select the features used to group customers
+X = df[["Annual Income (k$)", "Spending Score (1-100)"]]
+
+print("\nSelected Features:")
+print(X.head())
+
+print("\nFeature Dataset Shape:")
+print(X.shape)
+
+print("\nFeature Names:")
+print(X.columns.tolist())
+
+print("\nModule 5 completed successfully!")
+
+# Feature Scaling
+
+from sklearn.preprocessing import StandardScaler
+
+print("\n" + "=" * 50)
+print("MODULE 6: FEATURE SCALING")
+print("=" * 50)
+
+# Create the scaler
+scaler = StandardScaler()
+
+# Scale the selected features
+X_scaled = scaler.fit_transform(X)
+
+# Convert scaled values back into a DataFrame for easy viewing
+X_scaled = pd.DataFrame(
+    X_scaled,
+    columns=X.columns
+)
+
+print("\nFirst Five Rows Before Scaling:")
+print(X.head())
+
+print("\nFirst Five Rows After Scaling:")
+print(X_scaled.head())
+
+print("\nScaled Dataset Shape:")
+print(X_scaled.shape)
+
+print("\nMean of Scaled Features:")
+print(X_scaled.mean().round(2))
+
+print("\nStandard Deviation of Scaled Features:")
+print(X_scaled.std().round(2))
+
+print("\nModule 6 completed successfully!")
+
+# Module 7: Find Optimal Number of Clusters
+
+from sklearn.cluster import KMeans
+
+print("\n" + "=" * 50)
+print("MODULE 7: ELBOW METHOD")
+print("=" * 50)
+
+# Store the WCSS values
+wcss = []
+
+# Test cluster counts from 1 to 10
+for i in range(1, 11):
+    kmeans = KMeans(
+        n_clusters=i,
+        init="k-means++",
+        random_state=42,
+        n_init=10
+    )
+
+    kmeans.fit(X_scaled)
+
+    wcss.append(kmeans.inertia_)
+
+    print(f"Clusters: {i}, WCSS: {kmeans.inertia_:.2f}")
+
+# Plot the Elbow Method graph
+plt.figure(figsize=(8, 5))
+plt.plot(range(1, 11), wcss, marker="o")
+plt.title("Elbow Method for Optimal Number of Clusters")
+plt.xlabel("Number of Clusters")
+plt.ylabel("WCSS (Within-Cluster Sum of Squares)")
+plt.xticks(range(1, 11))
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+print("\nModule 7 completed successfully!")
+
+# Train K-Means Clustering Model
+
+from sklearn.cluster import KMeans
+
+print("\n" + "=" * 50)
+print("MODULE 8: K-MEANS MODEL TRAINING")
+print("=" * 50)
+
+# Create the K-Means model
+kmeans = KMeans(
+    n_clusters=5,
+    init="k-means++",
+    random_state=42,
+    n_init=10
+)
+
+# Train the model and assign each customer to a cluster
+df["Cluster"] = kmeans.fit_predict(X_scaled)
+
+# Display the cluster assigned to each customer
+print("\nFirst 10 Customers with Cluster Assignments:")
+print(df.head(10))
+
+# Display the number of customers in each cluster
+print("\nNumber of Customers in Each Cluster:")
+print(df["Cluster"].value_counts().sort_index())
+
+# Display the cluster centers
+print("\nCluster Centers (Scaled Values):")
+print(kmeans.cluster_centers_)
+
+print("\nModel Inertia (WCSS):")
+print(round(kmeans.inertia_, 2))
+
+print("\nModule 8 completed successfully!")
+
+# Visualize Customer Segments
+
+print("\n" + "=" * 50)
+print("MODULE 9: CUSTOMER SEGMENT VISUALIZATION")
+print("=" * 50)
+
+plt.figure(figsize=(10, 6))
+
+sns.scatterplot(
+    data=df,
+    x="Annual Income (k$)",
+    y="Spending Score (1-100)",
+    hue="Cluster",
+    palette="Set1",
+    s=100
+)
+
+# Convert cluster centers back to the original feature scale
+centers = scaler.inverse_transform(kmeans.cluster_centers_)
+
+plt.scatter(
+    centers[:, 0],
+    centers[:, 1],
+    marker="X",
+    s=250,
+    color="black",
+    label="Cluster Centers"
+)
+
+plt.title("Customer Segmentation Using K-Means")
+plt.xlabel("Annual Income (thousands of dollars)")
+plt.ylabel("Spending Score")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+print("\nModule 9 completed successfully!")
+
+# Analyze Customer Segments
+
+print("\n" + "=" * 50)
+print("MODULE 10: CUSTOMER SEGMENT ANALYSIS")
+print("=" * 50)
+
+# Calculate average values for each cluster
+cluster_summary = df.groupby("Cluster").agg(
+    Customer_Count=("Cluster", "count"),
+    Average_Age=("Age", "mean"),
+    Average_Income=("Annual Income (k$)", "mean"),
+    Average_Spending_Score=("Spending Score (1-100)", "mean")
+).round(2)
+
+print("\nCustomer Segment Summary:")
+print(cluster_summary)
+
+# Display the cluster with the highest average spending score
+highest_spending_cluster = cluster_summary[
+    "Average_Spending_Score"
+].idxmax()
+
+print(
+    f"\nCluster {highest_spending_cluster} "
+    "has the highest average spending score."
+)
+
+# Display the cluster with the highest average income
+highest_income_cluster = cluster_summary[
+    "Average_Income"
+].idxmax()
+
+print(
+    f"Cluster {highest_income_cluster} "
+    "has the highest average annual income."
+)
+
+print("\nModule 10 completed successfully!")
+
+# Business Insights and Recommendations
+
+print("\n" + "=" * 50)
+print("MODULE 11: BUSINESS INSIGHTS")
+print("=" * 50)
+
+for cluster_id, row in cluster_summary.iterrows():
+
+    income = row["Average_Income"]
+    spending = row["Average_Spending_Score"]
+
+    print(f"\nCustomer Segment: Cluster {cluster_id}")
+    print(f"Number of Customers: {int(row['Customer_Count'])}")
+    print(f"Average Annual Income: ${income:.2f}k")
+    print(f"Average Spending Score: {spending:.2f}")
+
+    if income >= 70 and spending >= 60:
+        print("Segment Type: High-Income, High-Spending")
+        print("Recommendation: Offer loyalty rewards and premium products.")
+
+    elif income >= 70 and spending < 40:
+        print("Segment Type: High-Income, Low-Spending")
+        print("Recommendation: Test personalized offers to encourage engagement.")
+
+    elif income < 40 and spending >= 60:
+        print("Segment Type: Lower-Income, High-Spending")
+        print("Recommendation: Promote popular products and suitable offers.")
+
+    elif income < 40 and spending < 40:
+        print("Segment Type: Lower-Income, Low-Spending")
+        print("Recommendation: Test budget-friendly promotions.")
+
+    else:
+        print("Segment Type: Moderate-Income or Moderate-Spending")
+        print("Recommendation: Use targeted campaigns based on customer preferences.")
+
+print("\nModule 11 completed successfully!")
+
+# Save the Trained Model
+
+import os
+import joblib
+
+print("\n" + "=" * 50)
+print("MODULE 12: SAVE THE TRAINED MODEL")
+print("=" * 50)
+
+# Create a folder to store the saved files
+os.makedirs("saved_model", exist_ok=True)
+
+# Save the trained K-Means model
+joblib.dump(kmeans, "saved_model/kmeans_model.pkl")
+
+# Save the scaler used during training
+joblib.dump(scaler, "saved_model/scaler.pkl")
+
+# Save the cluster summary
+cluster_summary.to_csv("saved_model/cluster_summary.csv")
+
+print("\nK-Means model saved successfully!")
+print("Scaler saved successfully!")
+print("Cluster summary saved successfully!")
+
+print("\nSaved Files:")
+print(os.listdir("saved_model"))
+
+print("\nModule 12 completed successfully!")
+# Module 13: Test the Saved Model
+
+import joblib
+
+print("\n" + "=" * 50)
+print("MODULE 13: TEST THE SAVED MODEL")
+print("=" * 50)
+
+# Load the saved model and scaler
+loaded_model = joblib.load("saved_model/kmeans_model.pkl")
+loaded_scaler = joblib.load("saved_model/scaler.pkl")
+
+# Create sample customer data
+new_customer = pd.DataFrame({
+    "Annual Income (k$)": [85],
+    "Spending Score (1-100)": [80]
+})
+
+# Scale the customer data while preserving feature names
+scaled_customer = pd.DataFrame(
+    loaded_scaler.transform(new_customer),
+    columns=new_customer.columns
+)
+
+# Predict the customer cluster
+predicted_cluster = loaded_model.predict(scaled_customer)[0]
+
+print("\nNew Customer Details:")
+print(new_customer)
+
+print(f"\nPredicted Customer Cluster: {predicted_cluster}")
+
+print("\nModule 13 completed successfully!")
+
+
+# Export Customer Segments
+
+print("\n" + "=" * 50)
+print("MODULE 14: EXPORT CUSTOMER SEGMENTS")
+print("=" * 50)
+
+# Export customer records with their cluster assignments
+df.to_csv("customer_segments.csv", index=False)
+
+print("\nCustomer segments exported successfully!")
+print("File: customer_segments.csv")
+
+print("\nFirst Five Records:")
+print(df.head())
+
+print("\nTotal Customers Exported:", len(df))
+
+print("\nModule 14 completed successfully!")
+
+# Evaluate Clustering Quality
+
+from sklearn.metrics import silhouette_score
+
+print("\n" + "=" * 50)
+print("MODULE 15: CLUSTERING EVALUATION")
+print("=" * 50)
+
+# Calculate the Silhouette Score
+score = silhouette_score(X_scaled, df["Cluster"])
+
+print(f"\nSilhouette Score: {score:.4f}")
+
+if score > 0.5:
+    print("Interpretation: The clusters are reasonably well separated.")
+elif score > 0.25:
+    print("Interpretation: The clusters have moderate separation.")
+else:
+    print("Interpretation: The clusters overlap considerably.")
+
+print("\nModule 15 completed successfully!")
+
